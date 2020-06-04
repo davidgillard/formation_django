@@ -1,26 +1,45 @@
 # -*- coding: utf-8 -*-
-#from __future__ import unicode_literals
-
-#from django.shortcuts import render
-
-# Create your views here.
-
-#from django.shortcuts import render
 from django.http import HttpResponse
-from .models import ALBUMS
+
+from .models import Album, Artist, Contact, Booking
+
 
 def index(request):
-        message = "Salut tout le monde"
-        return HttpResponse(message)
+    albums = Album.objects.filter(available=True).order_by('-created_at')[:12]
+    formatted_albums = ["<li>{}</li>".format(album.title) for album in albums]
+    message = """<ul>{}</ul>""".format("\n".join(formatted_albums))
+    return HttpResponse(message)
 
 def listing(request):
-    albums = ["<li>{}</li>".format(album['name']) for album in ALBUMS]
-    message = """<ul>{}</ul>""".format("\n".join(albums))
+    albums = Album.objects.filter(available=True)
+    formated_albums = ["<li>{}</li>".format(album.title) for album in albums]
+    message = """<ul>{}</ul>""".format("\n".join(formated_albums))
     return HttpResponse(message)
 
 def detail(request, album_id):
-    id = int(album_id) # make sure we have an integer.
-    album = ALBUMS[id] # get the album with its id.
-    artists = " ".join([artist['name'] for artist in album['artists']]) # grab artists name and create a string out of it.
-    message = "Le nom de l'album est {}. Il a été écrit par {}".format(album['name'], artists)
+    album = Album.objects.get(pk=album_id)
+    artists = " ".join([artist.name for artist in album.artists.all()])
+    message = "Le nom de l'album est {}. Il a été écrit par {}".format(album.title, artists)
+    return HttpResponse(message)
+
+def search(request):
+    query = request.GET.get('query')
+    if not query:
+        albums = Album.objects.all()
+    else:
+        # title contains the query is and query is not sensitive to case.
+        albums = Album.objects.filter(title__icontains=query)
+
+    if not albums.exists():
+        albums = Album.objects.filter(artists__name__icontains=query)
+
+    if not albums.exists():
+        message = "Misère de misère, nous n'avons trouvé aucun résultat !"
+    else:
+        albums = ["<li>{}</li>".format(album.title) for album in albums]
+        message = """
+            Nous avons trouvé les albums correspondant à votre requête ! Les voici :
+            <ul>{}</ul>
+        """.format("</li><li>".join(albums))
+
     return HttpResponse(message)
